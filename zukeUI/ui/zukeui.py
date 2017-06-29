@@ -1,20 +1,19 @@
 import os
 import sys
 
-import time
 import urllib.request
 
 from PyQt5 import QtWidgets
 
 from PyQt5 import uic
-from PyQt5.QtGui import QMouseEvent
 from PyQt5.QtGui import QPixmap
 from PyQt5.QtWidgets import QApplication
+from PyQt5.QtWidgets import QStyle
 
 from driver.utils.configuration.zukeconfiguration import ZukeConfigManager
 from driver.utils.connection.zukeconnection import ZukeAvailabilityError, InvalidZukeResponseError
-from driver.utils.connection.request_managing import UrlSendingManager, ZukeUiManager, VolumeSetterManager, SeekSetterManager, RefreshManager, \
-    PlayPauseManager
+from driver.utils.connection.request_managing import RequestManager
+from zukeui_manager import ZukeUiManager
 
 
 class Ui(QtWidgets.QDialog):
@@ -67,7 +66,10 @@ class Ui(QtWidgets.QDialog):
 
     def play_or_pause(self):
         try:
-            self.__zuc.play_or_pause(0 if self.__zuc.control["playing"] else 1)
+            if self.__zuc.control:
+                self.__zuc.play_or_pause(0 if self.__zuc.control["playing"] else 1)
+            else:
+                self.__zuc.get_control(self.control_to_play_or_pause_callback)
         except (ZukeAvailabilityError, InvalidZukeResponseError) as ex:
             self.__zuc.stop_refreshing()
             print("Exception during play or pause")
@@ -110,6 +112,9 @@ class Ui(QtWidgets.QDialog):
             self.volume_slider.setSliderPosition(control["volume"])
             self.__is_refreshing = False
 
+    def control_to_play_or_pause_callback(self, response):
+        self.__zuc.play_or_pause(0 if response["playing"] else 1)
+
 
 if __name__ == "__main__":
     assets_path = sys.argv[1]
@@ -119,11 +124,7 @@ if __name__ == "__main__":
     w = Ui(
         os.path.join(assets_path, 'zukeUI.ui'),
         ZukeUiManager(
-            UrlSendingManager(zcm),
-            VolumeSetterManager(zcm),
-            SeekSetterManager(zcm),
-            PlayPauseManager(zcm),
-            RefreshManager(zcm)
+            RequestManager(zcm)
         )
     )
     w.show()
